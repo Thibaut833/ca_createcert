@@ -1,0 +1,53 @@
+---
+# tasks file for ca_createcert
+
+- name: On lance la création de certificat sur Gitea
+  delegate_to: gitea
+  run_once: true
+  block:
+    - name: Je crée un folder pour {{ nom_serveur }}
+      ansible.builtin.file:
+        path: /data/ca_ansible/{{ nom_serveur }}
+        mode: "660"
+        state: directory
+
+    - name: Je crée ma clé privée pour le certificat de {{ nom_serveur }}
+      community.crypto.openssl_privatekey:
+        path: /data/ca_ansible/{{ nom_serveur }}/cert_{{ nom_serveur }}.key
+        mode: "600"
+
+    - name: Je crée la demande de signature de certificat (CSR)
+      community.crypto.openssl_csr_pipe:
+        privatekey_path: /data/ca_ansible/{{ nom_serveur }}/cert_{{ nom_serveur }}.key
+        subject_alt_name:
+          - "DNS:{{ nom_serveur }}.{{ nom_domaine }}"
+      register: csr
+
+    - name: Je regarde si le certificat client existe
+      ansible.builtin.stat:
+        path: /data/ca_ansible/{{ nom_serveur }}/cert_{{ nom_serveur }}.pem
+      register: certificate_exists
+
+    - name: Je lis le certificat s'il existe
+      ansible.builtin.slurp:
+        src: /data/ca_ansible/{{ nom_serveur }}/cert_{{ nom_serveur }}.pem
+      when: certificate_exists.stat.exists
+      register: certificate
+
+    - name: Je signe le certificat avec la CA
+      community.crypto.x509_certificate_pipe:
+        content: "{{ (certificate.content | b64decode) if certificate_exists.stat.exists else omit }}"
+        csr_content: "{{ csr.csr }}"
+        provider: ownca
+        ownca_path: /data/ca_ansible/ca-cert.pem
+        ownca_privatekey_path: /data/ca_ansible/ca.key
+        ownca_not_after: +365d  # valid for one year
+        ownca_not_before: "-1d"  # valid since yesterday
+      register: certificate
+
+    - name: J'écris le certificat dans un fichier
+      ansible.builtin.copy:
+        dest: /data/ca_ansible/{{ nom_serveur }}/cert_{{ nom_serveur }}.pem
+        content: "{{ certificate.certificate }}"
+        mode: "700"
+      when: certificate is changed
