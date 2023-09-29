@@ -8,13 +8,13 @@
     - name: Je crée un folder pour {{ nom_serveur }}
       ansible.builtin.file:
         path: /data/ca_ansible/{{ nom_serveur }}
-        mode: "660"
+        mode: "770"
         state: directory
 
     - name: Je crée ma clé privée pour le certificat de {{ nom_serveur }}
       community.crypto.openssl_privatekey:
         path: /data/ca_ansible/{{ nom_serveur }}/cert_{{ nom_serveur }}.key
-        mode: "600"
+        mode: "700"
 
     - name: Je crée la demande de signature de certificat (CSR)
       community.crypto.openssl_csr_pipe:
@@ -51,5 +51,5 @@
       ansible.builtin.copy:
         dest: /data/ca_ansible/{{ nom_serveur }}/cert_{{ nom_serveur }}.pem
         content: "{{ certificate.certificate }}"
-        mode: "700"
+        mode: "770"
       when: certificate is changed
