@@ -19,6 +19,7 @@
     - name: Je crée la demande de signature de certificat (CSR)
       community.crypto.openssl_csr_pipe:
         privatekey_path: /data/ca_ansible/{{ nom_serveur }}/cert_{{ nom_serveur }}.key
+        common_name: "{{ nom_serveur }}.{{ nom_domaine }}"
         subject_alt_name:
           - "DNS:{{ nom_serveur }}.{{ nom_domaine }}"
       register: csr
@@ -43,6 +44,7 @@
         ownca_privatekey_path: /data/ca_ansible/ca.key
         ownca_not_after: +365d  # valid for one year
         ownca_not_before: "-1d"  # valid since yesterday
+
       register: certificate
 
     - name: J'écris le certificat dans un fichier
